@@ -1,0 +1,404 @@
+/* Kindle Paperwhite Optimized Styles */
+/* High contrast grayscale, no animations, large touch targets */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 16px;
+    line-height: 1.4;
+    background: #fff;
+    color: #000;
+    min-height: 100vh;
+    -webkit-text-size-adjust: 100%;
+}
+
+#app {
+    max-width: 100%;
+    padding: 8px;
+}
+
+/* Screens */
+.screen {
+    display: block;
+}
+
+.screen.hidden {
+    display: none;
+}
+
+/* Typography */
+h1 {
+    font-size: 32px;
+    text-align: center;
+    margin: 40px 0 8px;
+    font-weight: normal;
+}
+
+h2 {
+    font-size: 20px;
+    margin: 16px 0 12px;
+    font-weight: normal;
+    border-bottom: 1px solid #000;
+    padding-bottom: 4px;
+}
+
+h3 {
+    font-size: 16px;
+    margin: 12px 0 8px;
+    font-weight: bold;
+}
+
+.subtitle {
+    text-align: center;
+    font-style: italic;
+    margin-bottom: 32px;
+    color: #444;
+}
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-family: inherit;
+    background: #fff;
+    color: #000;
+    border: 2px solid #000;
+    cursor: pointer;
+    min-height: 44px;
+    min-width: 44px;
+}
+
+.btn:active {
+    background: #000;
+    color: #fff;
+}
+
+.btn-large {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    margin: 8px 0;
+}
+
+.btn-small {
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #000;
+    margin-bottom: 12px;
+}
+
+/* Time Controls Grid */
+#time-controls {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.time-btn {
+    padding: 14px 8px;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Seeking State */
+#seeking {
+    text-align: center;
+    padding: 20px;
+    border: 2px dashed #666;
+    margin: 16px 0;
+}
+
+/* Games List */
+#games-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.game-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid #000;
+}
+
+/* Chess Board */
+#board {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    border: 3px solid #000;
+    margin: 8px auto;
+    max-width: 320px;
+    aspect-ratio: 1;
+}
+
+.square {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.square.light {
+    background: #fff;
+}
+
+.square.dark {
+    background: #999;
+}
+
+.square.selected {
+    background: #666 !important;
+}
+
+.square.legal-move::after {
+    content: '';
+    position: absolute;
+    width: 30%;
+    height: 30%;
+    background: #333;
+    border-radius: 50%;
+    opacity: 0.6;
+}
+
+.square.legal-capture::after {
+    content: '';
+    position: absolute;
+    width: 90%;
+    height: 90%;
+    border: 4px solid #333;
+    border-radius: 50%;
+    opacity: 0.6;
+}
+
+.square.last-move {
+    background: #bbb !important;
+}
+
+.square.check {
+    background: #777 !important;
+}
+
+/* Pieces - using Unicode symbols for simplicity */
+.piece {
+    font-size: 32px;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.piece.white {
+    color: #fff;
+    text-shadow: 
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0 0 2px #000;
+}
+
+.piece.black {
+    color: #000;
+}
+
+/* Player Info */
+.player-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    max-width: 320px;
+    margin: 4px auto;
+    border: 1px solid #000;
+    background: #f0f0f0;
+}
+
+.player-info.opponent {
+    border-bottom: none;
+}
+
+.player-info.player {
+    border-top: none;
+}
+
+.clock {
+    font-family: 'Courier New', monospace;
+    font-size: 20px;
+    font-weight: bold;
+    min-width: 60px;
+    text-align: right;
+}
+
+.clock.low-time {
+    background: #000;
+    color: #fff;
+    padding: 2px 6px;
+}
+
+/* Game Header */
+.game-header {
+    margin-bottom: 8px;
+}
+
+#game-status {
+    font-weight: bold;
+}
+
+/* Game Controls */
+#game-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#game-controls .btn {
+    flex: 1;
+}
+
+/* Game Result */
+#game-result {
+    text-align: center;
+    padding: 20px;
+    margin-top: 16px;
+    border: 3px solid #000;
+    background: #f0f0f0;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#result-text {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 16px;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    text-align: center;
+    padding: 20px;
+    border: 3px solid #000;
+    background: #fff;
+}
+
+.promotion-pieces {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.promo-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 32px;
+    background: #fff;
+    border: 2px solid #000;
+    cursor: pointer;
+}
+
+.promo-btn:active {
+    background: #000;
+    color: #fff;
+}
+
+/* Utility */
+.hidden {
+    display: none !important;
+}
+
+/* Error Banner */
+.error-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #000;
+    color: #fff;
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 200;
+}
+
+.error-banner .btn-small {
+    background: transparent;
+    color: #fff;
+    border-color: #fff;
+    padding: 4px 10px;
+}
+
+/* Help Text */
+.help-text {
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+    margin-top: 24px;
+    font-style: italic;
+}
+
+/* Coordinate labels - optional, off by default for simplicity */
+.coord {
+    position: absolute;
+    font-size: 10px;
+    opacity: 0.6;
+}
+
+.coord-file {
+    bottom: 1px;
+    right: 2px;
+}
+
+.coord-rank {
+    top: 1px;
+    left: 2px;
+}

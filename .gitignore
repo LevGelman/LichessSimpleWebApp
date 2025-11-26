@@ -1,0 +1,19 @@
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.production
+
+# Editor directories
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

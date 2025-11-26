@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/staticwebapp.config.json",
+  "routes": [
+    {
+      "route": "/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html"
+  },
+  "globalHeaders": {
+    "Cache-Control": "public, max-age=3600"
+  },
+  "mimeTypes": {
+    ".json": "application/json"
+  }
+}
