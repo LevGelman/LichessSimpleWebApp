@@ -101,27 +101,63 @@ function formatTime(seconds) {
     return mins + ':' + (secs < 10 ? '0' : '') + secs;
 }
 
+// Fetch with timeout for Kindle compatibility
+function fetchWithTimeout(url, options, timeout) {
+    timeout = timeout || 30000; // 30 second default
+
+    return new Promise(function(resolve, reject) {
+        var timedOut = false;
+        var timer = setTimeout(function() {
+            timedOut = true;
+            reject(new Error('Request timeout'));
+        }, timeout);
+
+        fetch(url, options)
+            .then(function(response) {
+                clearTimeout(timer);
+                if (!timedOut) {
+                    resolve(response);
+                }
+            })
+            .catch(function(error) {
+                clearTimeout(timer);
+                if (!timedOut) {
+                    reject(error);
+                }
+            });
+    });
+}
+
 // ============================================
 // OAuth Authentication
 // ============================================
 
 async function startLogin() {
-    const codeVerifier = generateRandomString(64);
-    localStorage.setItem('pkce_verifier', codeVerifier);
-    
-    const hashed = await sha256(codeVerifier);
-    const codeChallenge = base64UrlEncode(hashed);
-    
-    const params = new URLSearchParams({
-        response_type: 'code',
-        client_id: CONFIG.LICHESS_CLIENT_ID,
-        redirect_uri: CONFIG.REDIRECT_URI,
-        scope: 'board:play',
-        code_challenge_method: 'S256',
-        code_challenge: codeChallenge
-    });
-    
-    window.location.href = CONFIG.LICHESS_HOST + '/oauth?' + params.toString();
+    try {
+        console.log('Starting login...');
+        const codeVerifier = generateRandomString(64);
+        localStorage.setItem('pkce_verifier', codeVerifier);
+
+        console.log('Hashing code verifier...');
+        const hashed = await sha256(codeVerifier);
+        const codeChallenge = base64UrlEncode(hashed);
+        console.log('Hash complete');
+
+        const params = new URLSearchParams({
+            response_type: 'code',
+            client_id: CONFIG.LICHESS_CLIENT_ID,
+            redirect_uri: CONFIG.REDIRECT_URI,
+            scope: 'board:play',
+            code_challenge_method: 'S256',
+            code_challenge: codeChallenge
+        });
+
+        window.location.href = CONFIG.LICHESS_HOST + '/oauth?' + params.toString();
+    } catch (err) {
+        console.error('Login failed:', err);
+        showError('Login failed: ' + err.message);
+        showScreen('screen-login');
+    }
 }
 
 async function handleOAuthCallback() {
@@ -137,7 +173,8 @@ async function handleOAuthCallback() {
     }
     
     try {
-        const response = await fetch(CONFIG.LICHESS_HOST + '/api/token', {
+        console.log('Exchanging OAuth code for token...');
+        const response = await fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/token', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -148,22 +185,27 @@ async function handleOAuthCallback() {
                 code_verifier: codeVerifier,
                 redirect_uri: CONFIG.REDIRECT_URI,
                 client_id: CONFIG.LICHESS_CLIENT_ID
-            })
-        });
-        
-        if (!response.ok) throw new Error('Token exchange failed');
-        
+            }).toString()
+        }, 30000);
+
+        if (!response.ok) {
+            console.error('Token exchange failed with status:', response.status);
+            throw new Error('Token exchange failed');
+        }
+
         const data = await response.json();
         state.token = data.access_token;
         localStorage.setItem('lichess_token', state.token);
         localStorage.removeItem('pkce_verifier');
-        
+
+        console.log('OAuth success');
         // Clean URL
         window.history.replaceState({}, document.title, '/');
-        
+
         return true;
     } catch (err) {
         console.error('OAuth error:', err);
+        showError('OAuth failed: ' + err.message);
         return false;
     }
 }
@@ -171,22 +213,28 @@ async function handleOAuthCallback() {
 async function checkAuth() {
     state.token = localStorage.getItem('lichess_token');
     if (!state.token) return false;
-    
+
     try {
-        const response = await fetch(CONFIG.LICHESS_HOST + '/api/account', {
+        console.log('Checking authentication...');
+        const response = await fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/account', {
             headers: { 'Authorization': 'Bearer ' + state.token }
-        });
-        
+        }, 20000);
+
         if (!response.ok) {
+            console.log('Auth check failed, clearing token');
             localStorage.removeItem('lichess_token');
             state.token = null;
             return false;
         }
-        
+
         state.user = await response.json();
+        console.log('Authenticated as:', state.user.username);
         return true;
     } catch (err) {
         console.error('Auth check failed:', err);
+        showError('Connection failed: ' + err.message);
+        localStorage.removeItem('lichess_token');
+        state.token = null;
         return false;
     }
 }
@@ -227,24 +275,24 @@ function renderTimeControls() {
 
 async function checkOngoingGames() {
     try {
-        const response = await fetch(CONFIG.LICHESS_HOST + '/api/account/playing', {
+        const response = await fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/account/playing', {
             headers: { 'Authorization': 'Bearer ' + state.token }
-        });
-        
+        }, 15000);
+
         if (!response.ok) return;
-        
+
         const data = await response.json();
         const games = data.nowPlaying || [];
-        
+
         if (games.length > 0) {
             show('ongoing-games');
             const list = $('games-list');
             list.innerHTML = '';
-            
+
             games.forEach(game => {
                 const div = document.createElement('div');
                 div.className = 'game-item';
-                div.innerHTML = 
+                div.innerHTML =
                     '<span>vs ' + game.opponent.username + '</span>' +
                     '<button class="btn btn-small">Resume</button>';
                 div.querySelector('button').onclick = () => joinGame(game.gameId);
@@ -266,7 +314,7 @@ async function seekGame(minutes, increment) {
     
     try {
         // Create the seek - this will stream until cancelled or game found
-        const response = await fetch(CONFIG.LICHESS_HOST + '/api/board/seek', {
+        const response = await fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/board/seek', {
             method: 'POST',
             headers: {
                 'Authorization': 'Bearer ' + state.token,
@@ -278,8 +326,8 @@ async function seekGame(minutes, increment) {
                 rated: 'true',
                 variant: 'standard',
                 color: 'random'
-            })
-        });
+            }).toString()
+        }, 120000);
         
         if (!response.ok) {
             let errorMsg = 'Seek failed: ' + response.status;
@@ -342,49 +390,60 @@ function startEventStream() {
     if (state.eventStreamReader) {
         return; // Already listening
     }
-    
+
     console.log('Starting event stream...');
-    
+
     fetch(CONFIG.LICHESS_HOST + '/api/stream/event', {
         headers: { 'Authorization': 'Bearer ' + state.token }
-    }).then(response => {
+    }).then(function(response) {
         if (!response.ok) {
             console.error('Event stream failed:', response.status);
             return;
         }
-        
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
         state.eventStreamReader = reader;
-        
-        function read() {
-            reader.read().then(({ value, done }) => {
-                if (done) {
+
+        // Iterative reading to avoid stack overflow on Kindle
+        function readChunk() {
+            reader.read().then(function(result) {
+                if (result.done) {
                     console.log('Event stream ended');
                     state.eventStreamReader = null;
                     return;
                 }
-                
-                const text = decoder.decode(value);
-                const lines = text.split('\n').filter(l => l.trim());
-                
-                for (const line of lines) {
-                    try {
-                        const event = JSON.parse(line);
-                        console.log('Event:', event);
-                        handleIncomingEvent(event);
-                    } catch (e) {}
+
+                try {
+                    var text = decoder.decode(result.value, { stream: true });
+                    var lines = text.split('\n');
+
+                    for (var i = 0; i < lines.length; i++) {
+                        var line = lines[i].trim();
+                        if (line) {
+                            try {
+                                var event = JSON.parse(line);
+                                console.log('Event:', event);
+                                handleIncomingEvent(event);
+                            } catch (e) {
+                                console.log('Failed to parse event line:', e);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to decode stream:', e);
                 }
-                
-                read();
-            }).catch(err => {
+
+                // Continue reading (async, no recursion)
+                setTimeout(readChunk, 0);
+            }).catch(function(err) {
                 console.error('Event stream error:', err);
                 state.eventStreamReader = null;
             });
         }
-        
-        read();
-    }).catch(err => {
+
+        readChunk();
+    }).catch(function(err) {
         console.error('Failed to start event stream:', err);
     });
 }
@@ -453,41 +512,66 @@ function streamGame(gameId) {
     if (state.eventSource) {
         state.eventSource.close();
     }
-    
+
+    console.log('Streaming game:', gameId);
+
     // Use fetch with streaming for better Kindle compatibility
     fetch(CONFIG.LICHESS_HOST + '/api/board/game/stream/' + gameId, {
         headers: { 'Authorization': 'Bearer ' + state.token }
-    }).then(response => {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        
-        function read() {
-            reader.read().then(({ value, done }) => {
-                if (done) {
-                    console.log('Stream ended');
+    }).then(function(response) {
+        if (!response.ok) {
+            console.error('Game stream failed:', response.status);
+            $('game-status').textContent = 'Connection failed';
+            return;
+        }
+
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = '';
+
+        // Iterative reading to avoid stack overflow on Kindle
+        function readChunk() {
+            reader.read().then(function(result) {
+                if (result.done) {
+                    console.log('Game stream ended');
                     return;
                 }
-                
-                const text = decoder.decode(value);
-                const lines = text.split('\n').filter(l => l.trim());
-                
-                for (const line of lines) {
-                    try {
-                        const event = JSON.parse(line);
-                        handleGameEvent(event);
-                    } catch (e) {}
+
+                try {
+                    buffer += decoder.decode(result.value, { stream: true });
+                    var lines = buffer.split('\n');
+
+                    // Keep last incomplete line in buffer
+                    buffer = lines.pop() || '';
+
+                    for (var i = 0; i < lines.length; i++) {
+                        var line = lines[i].trim();
+                        if (line) {
+                            try {
+                                var event = JSON.parse(line);
+                                handleGameEvent(event);
+                            } catch (e) {
+                                console.log('Failed to parse game event:', e);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to decode game stream:', e);
                 }
-                
-                read();
-            }).catch(err => {
-                console.error('Stream error:', err);
+
+                // Continue reading (async, no recursion)
+                setTimeout(readChunk, 0);
+            }).catch(function(err) {
+                console.error('Game stream error:', err);
+                $('game-status').textContent = 'Connection lost';
             });
         }
-        
-        read();
-    }).catch(err => {
+
+        readChunk();
+    }).catch(function(err) {
         console.error('Failed to stream game:', err);
         $('game-status').textContent = 'Connection failed';
+        showError('Failed to connect to game');
     });
 }
 
@@ -827,10 +911,8 @@ function renderBoard() {
         lastTo = lastMove.slice(2, 4);
     }
     
-    // Find king in check
-    let kingInCheck = null;
-    // Simple check detection - find if king is attacked
-    // For now, skip this (server shows it in events)
+    // Simple check detection - server handles check detection
+    // Could highlight king in check here in the future
     
     for (let r = 0; r < 8; r++) {
         for (let f = 0; f < 8; f++) {
@@ -957,22 +1039,25 @@ async function sendMove(uci) {
     state.selectedSquare = null;
     state.legalMoves = [];
     renderBoard();
-    
+
     try {
-        const response = await fetch(
+        const response = await fetchWithTimeout(
             CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/move/' + uci,
             {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + state.token }
-            }
+            },
+            10000
         );
-        
+
         if (!response.ok) {
             console.error('Move rejected');
+            showError('Invalid move');
             // Move will be rejected, stream will update with correct state
         }
     } catch (err) {
         console.error('Failed to send move:', err);
+        showError('Failed to send move');
     }
 }
 
@@ -982,32 +1067,36 @@ async function sendMove(uci) {
 
 async function resign() {
     if (!confirm('Are you sure you want to resign?')) return;
-    
+
     try {
-        await fetch(
+        await fetchWithTimeout(
             CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/resign',
             {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + state.token }
-            }
+            },
+            10000
         );
     } catch (err) {
         console.error('Failed to resign:', err);
+        showError('Failed to resign');
     }
 }
 
 async function offerDraw() {
     try {
-        await fetch(
+        await fetchWithTimeout(
             CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/draw/yes',
             {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + state.token }
-            }
+            },
+            10000
         );
         alert('Draw offer sent');
     } catch (err) {
         console.error('Failed to offer draw:', err);
+        showError('Failed to offer draw');
     }
 }
 
@@ -1053,14 +1142,32 @@ function setupEventHandlers() {
 // Initialization
 // ============================================
 
+function checkBrowserCompatibility() {
+    console.log('=== Browser Compatibility Check ===');
+    console.log('User Agent:', navigator.userAgent);
+    console.log('TextEncoder:', typeof TextEncoder !== 'undefined' ? 'OK' : 'MISSING (polyfilled)');
+    console.log('TextDecoder:', typeof TextDecoder !== 'undefined' ? 'OK' : 'MISSING (polyfilled)');
+    console.log('crypto.subtle:', window.crypto && window.crypto.subtle ? 'OK' : 'MISSING (polyfilled)');
+    console.log('URLSearchParams:', typeof URLSearchParams !== 'undefined' ? 'OK' : 'MISSING (polyfilled)');
+    console.log('fetch:', typeof fetch !== 'undefined' ? 'OK' : 'MISSING');
+    console.log('Promise:', typeof Promise !== 'undefined' ? 'OK' : 'MISSING');
+    console.log('localStorage:', typeof localStorage !== 'undefined' ? 'OK' : 'MISSING');
+    console.log('ReadableStream:', typeof ReadableStream !== 'undefined' ? 'OK' : 'MISSING');
+    console.log('===================================');
+}
+
 async function init() {
+    console.log('Initializing Lichess Kindle app...');
+    checkBrowserCompatibility();
+
     setupEventHandlers();
-    
+
     // Show loading screen first
     showScreen('screen-loading');
-    
+
     // Check for OAuth callback
     if (window.location.search.includes('code=')) {
+        console.log('OAuth callback detected');
         const success = await handleOAuthCallback();
         if (success) {
             const authed = await checkAuth();
@@ -1073,12 +1180,13 @@ async function init() {
         showError('Login failed. Please try again.');
         return;
     }
-    
+
     // Check existing auth
     const authed = await checkAuth();
     if (authed) {
         showLobby();
     } else {
+        console.log('No existing auth, showing login screen');
         showScreen('screen-login');
     }
 }
