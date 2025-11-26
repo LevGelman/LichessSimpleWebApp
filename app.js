@@ -273,7 +273,9 @@ async function seekGame(minutes, increment) {
             body: new URLSearchParams({
                 time: minutes,
                 increment: increment,
-                rated: 'true'
+                rated: 'true',
+		variant: 'standard',
+		color: 'random'
             })
         });
         

@@ -32,12 +32,6 @@ const CONFIG = {
     
     // Available time controls (in minutes + increment in seconds)
     TIME_CONTROLS: [
-        { name: '1+0 Bullet', time: 1, increment: 0 },
-        { name: '2+1 Bullet', time: 2, increment: 1 },
-        { name: '3+0 Blitz', time: 3, increment: 0 },
-        { name: '3+2 Blitz', time: 3, increment: 2 },
-        { name: '5+0 Blitz', time: 5, increment: 0 },
-        { name: '5+3 Blitz', time: 5, increment: 3 },
         { name: '10+0 Rapid', time: 10, increment: 0 },
         { name: '10+5 Rapid', time: 10, increment: 5 },
         { name: '15+10 Rapid', time: 15, increment: 10 },
