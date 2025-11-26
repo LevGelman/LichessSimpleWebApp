@@ -16,6 +16,8 @@ const state = {
     pendingPromotion: null,
     eventSource: null,
     seekEventSource: null,
+    seekReader: null,
+    eventStreamReader: null,
     clockInterval: null,
     lastClockUpdate: null,
     whiteTime: null,
@@ -195,6 +197,7 @@ function logout() {
     state.user = null;
     if (state.eventSource) state.eventSource.close();
     if (state.seekEventSource) state.seekEventSource.close();
+    stopEventStream();
     showScreen('screen-login');
 }
 
@@ -258,12 +261,11 @@ async function checkOngoingGames() {
 async function seekGame(minutes, increment) {
     show('seeking');
     
-    // Close any existing seek
-    if (state.seekEventSource) {
-        state.seekEventSource.close();
-    }
+    // First, start listening to the event stream to catch game start
+    startEventStream();
     
     try {
+        // Create the seek - this will stream until cancelled or game found
         const response = await fetch(CONFIG.LICHESS_HOST + '/api/board/seek', {
             method: 'POST',
             headers: {
@@ -274,31 +276,46 @@ async function seekGame(minutes, increment) {
                 time: minutes,
                 increment: increment,
                 rated: 'true',
-		variant: 'standard',
-		color: 'random'
+                variant: 'standard',
+                color: 'random'
             })
         });
         
         if (!response.ok) {
-            throw new Error('Seek failed: ' + response.status);
+            let errorMsg = 'Seek failed: ' + response.status;
+            try {
+                const errorBody = await response.text();
+                console.error('Seek error body:', errorBody);
+                errorMsg += ' - ' + errorBody;
+            } catch (e) {}
+            throw new Error(errorMsg);
         }
         
-        // Stream response for game start
+        // The seek stream stays open while waiting for an opponent
+        // Game start notification comes via the event stream
+        // Keep reading to keep the seek alive
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         
+        state.seekReader = reader;
+        
         while (true) {
             const { value, done } = await reader.read();
-            if (done) break;
+            if (done) {
+                console.log('Seek stream ended');
+                break;
+            }
             
             const text = decoder.decode(value);
-            const lines = text.split('\n').filter(l => l.trim());
+            console.log('Seek stream data:', text);
             
+            // Sometimes the game ID comes directly in the seek response
+            const lines = text.split('\n').filter(l => l.trim());
             for (const line of lines) {
                 try {
                     const event = JSON.parse(line);
+                    console.log('Seek event:', event);
                     if (event.id) {
-                        // Game started
                         hide('seeking');
                         joinGame(event.id);
                         return;
@@ -307,20 +324,111 @@ async function seekGame(minutes, increment) {
             }
         }
         
+        // Stream ended without finding game
         hide('seeking');
+        showError('No opponent found. Try again.');
+        
     } catch (err) {
         console.error('Seek error:', err);
         hide('seeking');
-        showError('Failed to find game. Please try again.');
+        if (err.name !== 'AbortError') {
+            showError('Failed to find game. Please try again.');
+        }
+    }
+}
+
+// Event stream to receive game start notifications
+function startEventStream() {
+    if (state.eventStreamReader) {
+        return; // Already listening
+    }
+    
+    console.log('Starting event stream...');
+    
+    fetch(CONFIG.LICHESS_HOST + '/api/stream/event', {
+        headers: { 'Authorization': 'Bearer ' + state.token }
+    }).then(response => {
+        if (!response.ok) {
+            console.error('Event stream failed:', response.status);
+            return;
+        }
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        state.eventStreamReader = reader;
+        
+        function read() {
+            reader.read().then(({ value, done }) => {
+                if (done) {
+                    console.log('Event stream ended');
+                    state.eventStreamReader = null;
+                    return;
+                }
+                
+                const text = decoder.decode(value);
+                const lines = text.split('\n').filter(l => l.trim());
+                
+                for (const line of lines) {
+                    try {
+                        const event = JSON.parse(line);
+                        console.log('Event:', event);
+                        handleIncomingEvent(event);
+                    } catch (e) {}
+                }
+                
+                read();
+            }).catch(err => {
+                console.error('Event stream error:', err);
+                state.eventStreamReader = null;
+            });
+        }
+        
+        read();
+    }).catch(err => {
+        console.error('Failed to start event stream:', err);
+    });
+}
+
+function handleIncomingEvent(event) {
+    if (event.type === 'gameStart') {
+        console.log('Game started!', event.game);
+        hide('seeking');
+        
+        // Cancel the seek stream
+        if (state.seekReader) {
+            state.seekReader.cancel();
+            state.seekReader = null;
+        }
+        
+        joinGame(event.game.gameId || event.game.id);
+    } else if (event.type === 'gameFinish') {
+        console.log('Game finished', event.game);
+        checkOngoingGames();
+    } else if (event.type === 'challenge') {
+        console.log('Challenge received', event.challenge);
+        // Could show challenge notification here
+    }
+}
+
+function stopEventStream() {
+    if (state.eventStreamReader) {
+        state.eventStreamReader.cancel();
+        state.eventStreamReader = null;
     }
 }
 
 function cancelSeek() {
+    // Cancel the seek stream
+    if (state.seekReader) {
+        state.seekReader.cancel();
+        state.seekReader = null;
+    }
     if (state.seekEventSource) {
         state.seekEventSource.close();
         state.seekEventSource = null;
     }
     hide('seeking');
+}
 }
 
 // ============================================
