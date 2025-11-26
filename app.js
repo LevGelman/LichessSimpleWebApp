@@ -429,7 +429,6 @@ function cancelSeek() {
     }
     hide('seeking');
 }
-}
 
 // ============================================
 // Game Logic
