@@ -1,6 +1,80 @@
 // Lichess Kindle Client - Main Application
 // No dependencies, vanilla JS
 
+// Log immediately to catch early errors
+if (window.console && window.console.log) {
+    window.console.log('>>> app.js loading...');
+}
+
+// ============================================
+// On-Screen Debug Logger for Kindle
+// ============================================
+
+const debugLines = [];
+const MAX_DEBUG_LINES = 50;
+
+function debugLog(message, isError) {
+    // Add to array
+    const timestamp = new Date().toLocaleTimeString();
+    debugLines.push({
+        time: timestamp,
+        msg: String(message),
+        isError: isError
+    });
+
+    // Keep only last N lines
+    if (debugLines.length > MAX_DEBUG_LINES) {
+        debugLines.shift();
+    }
+
+    // Update display
+    updateDebugDisplay();
+
+    // Also log to console (if available)
+    if (isError) {
+        console.error(message);
+    } else {
+        console.log(message);
+    }
+}
+
+function updateDebugDisplay() {
+    const debugEl = document.getElementById('debug-log');
+    if (!debugEl) return;
+
+    let html = '';
+    for (let i = 0; i < debugLines.length; i++) {
+        const line = debugLines[i];
+        const className = line.isError ? 'debug-error' : 'debug-ok';
+        html += '<div class="debug-line ' + className + '">' +
+                line.time + ' ' + line.msg + '</div>';
+    }
+    debugEl.innerHTML = html;
+
+    // Auto-scroll to bottom
+    debugEl.scrollTop = debugEl.scrollHeight;
+}
+
+// Override console methods to show on screen
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+console.log = function() {
+    const message = Array.prototype.slice.call(arguments).join(' ');
+    debugLog(message, false);
+};
+
+console.error = function() {
+    const message = Array.prototype.slice.call(arguments).join(' ');
+    debugLog(message, true);
+};
+
+console.warn = function() {
+    const message = 'WARN: ' + Array.prototype.slice.call(arguments).join(' ');
+    debugLog(message, false);
+};
+
 // ============================================
 // State
 // ============================================
@@ -1157,43 +1231,87 @@ function checkBrowserCompatibility() {
 }
 
 async function init() {
-    console.log('Initializing Lichess Kindle app...');
-    checkBrowserCompatibility();
+    try {
+        console.log('Initializing Lichess Kindle app...');
 
-    setupEventHandlers();
+        // Check if polyfills loaded
+        console.log('Polyfills check:');
+        console.log('- window.POLYFILLS_LOADED = ' + (window.POLYFILLS_LOADED ? 'YES' : 'NO'));
 
-    // Show loading screen first
-    showScreen('screen-loading');
+        checkBrowserCompatibility();
 
-    // Check for OAuth callback
-    if (window.location.search.includes('code=')) {
-        console.log('OAuth callback detected');
-        const success = await handleOAuthCallback();
-        if (success) {
-            const authed = await checkAuth();
-            if (authed) {
-                showLobby();
-                return;
+        console.log('Setting up event handlers...');
+        setupEventHandlers();
+        console.log('Event handlers ready');
+
+        // Show loading screen first
+        console.log('Showing loading screen');
+        showScreen('screen-loading');
+
+        // Check for OAuth callback
+        if (window.location.search.includes('code=')) {
+            console.log('OAuth callback detected');
+            const success = await handleOAuthCallback();
+            if (success) {
+                const authed = await checkAuth();
+                if (authed) {
+                    showLobby();
+                    return;
+                }
             }
+            showScreen('screen-login');
+            showError('Login failed. Please try again.');
+            return;
         }
-        showScreen('screen-login');
-        showError('Login failed. Please try again.');
-        return;
-    }
 
-    // Check existing auth
-    const authed = await checkAuth();
-    if (authed) {
-        showLobby();
-    } else {
-        console.log('No existing auth, showing login screen');
+        // Check existing auth
+        console.log('Checking for existing auth...');
+        const authed = await checkAuth();
+        if (authed) {
+            console.log('Auth valid, showing lobby');
+            showLobby();
+        } else {
+            console.log('No existing auth, showing login screen');
+            showScreen('screen-login');
+        }
+    } catch (err) {
+        console.error('CRITICAL: Init failed with error: ' + err.message);
+        console.error('Error stack: ' + (err.stack || 'No stack trace'));
         showScreen('screen-login');
+        showError('Initialization failed: ' + err.message);
     }
 }
 
+// Global error handler
+window.addEventListener('error', function(e) {
+    console.error('Global error: ' + e.message + ' at ' + e.filename + ':' + e.lineno);
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled promise rejection: ' + e.reason);
+});
+
 // Start app when DOM ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
+console.log('=== APP LOADING ===');
+console.log('DOM state: ' + document.readyState);
+
+try {
+    if (document.readyState === 'loading') {
+        console.log('Waiting for DOM...');
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM ready, starting init');
+            try {
+                init();
+            } catch (err) {
+                console.error('Init failed: ' + err.message);
+                console.error('Stack: ' + err.stack);
+            }
+        });
+    } else {
+        console.log('DOM already ready, starting init');
+        init();
+    }
+} catch (err) {
+    console.error('Critical error during startup: ' + err.message);
+    console.error('Stack: ' + err.stack);
 }

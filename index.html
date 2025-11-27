@@ -14,6 +14,7 @@
         <div id="screen-loading" class="screen">
             <h1>♔ Lichess</h1>
             <p class="subtitle">Loading...</p>
+            <div id="debug-log" class="debug-log"></div>
         </div>
 
         <!-- Error Display -->
@@ -100,6 +101,15 @@
     </div>
 
     <!-- Load polyfills first for Kindle browser compatibility -->
+    <script>
+        // Immediate test - does JavaScript work at all?
+        (function() {
+            var debugEl = document.getElementById('debug-log');
+            if (debugEl) {
+                debugEl.innerHTML = '<div>[' + new Date().toLocaleTimeString() + '] JavaScript is working!</div>';
+            }
+        })();
+    </script>
     <script src="polyfills.js"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>

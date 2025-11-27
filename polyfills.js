@@ -257,5 +257,11 @@
         };
     }
 
-    console.log('Polyfills loaded successfully');
+    // Mark that polyfills loaded
+    window.POLYFILLS_LOADED = true;
+
+    // Try to log (console might not be overridden yet)
+    if (window.console && window.console.log) {
+        window.console.log('✓ Polyfills loaded successfully');
+    }
 })();
