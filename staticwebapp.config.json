@@ -7,12 +7,16 @@
     }
   ],
   "navigationFallback": {
-    "rewrite": "/index.html"
+    "rewrite": "/index.html",
+    "exclude": ["*.js", "*.css", "*.json", "*.svg", "*.png", "*.jpg"]
   },
   "globalHeaders": {
     "Cache-Control": "public, max-age=3600"
   },
   "mimeTypes": {
-    ".json": "application/json"
+    ".js": "text/javascript",
+    ".json": "application/json",
+    ".css": "text/css",
+    ".html": "text/html"
   }
 }
