@@ -538,29 +538,54 @@ header {
 </div>
 
 <script>
-// Simple working logger
+// Ultra-simple logger with maximum compatibility
 (function() {
-    var debugDiv = document.getElementById('debug-log');
     var logs = [];
     var count = 0;
-
-    window.log = function(msg, isError) {
+    
+    window.log = function(msg) {
         count++;
         var time = new Date().toLocaleTimeString();
-        logs.push(count + '. [' + time + '] ' + msg);
-        if (logs.length > 100) logs.shift();
-
-        if (debugDiv) {
-            debugDiv.innerHTML = logs.join('<br>');
-            debugDiv.scrollTop = debugDiv.scrollHeight;
+        var logLine = count + '. [' + time + '] ' + String(msg);
+        logs.push(logLine);
+        if (logs.length > 50) logs.shift();
+        
+        // Update debug div
+        try {
+            var debugDiv = document.getElementById('debug-log');
+            if (debugDiv) {
+                debugDiv.innerHTML = logs.join('<br>\n');
+                debugDiv.scrollTop = 99999;
+            }
+        } catch(e) {
+            // Ignore errors in logger itself
         }
     };
 
     window.onerror = function(msg, url, line) {
-        log('ERROR: ' + msg + ' at line ' + line, true);
+        log('ERROR: ' + msg + ' at line ' + line);
+        return true;
     };
 
-    log('Loading...');
+    window.addEventListener('unhandledrejection', function(e) {
+        log('PROMISE ERROR: ' + (e.reason || 'unknown'));
+    });
+
+    log('1. Logger initialized');
+    log('2. Testing basic features...');
+    log('3. typeof Promise: ' + typeof Promise);
+    log('4. typeof fetch: ' + typeof fetch);
+    log('5. typeof TextEncoder: ' + typeof TextEncoder);
+    
+    // Test async/await support
+    try {
+        eval('(async function(){})()');
+        log('6. async/await: SUPPORTED');
+    } catch(e) {
+        log('6. async/await: ERROR - ' + e.message);
+    }
+    
+    log('7. Starting app load...');
 })();
 
 // Polyfills for Kindle Browser Compatibility
