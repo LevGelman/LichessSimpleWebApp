@@ -878,7 +878,7 @@ document.getElementById('debug-log').innerHTML = 'JS RUNNING!<br>';
 // "Lichess supports unregistered and public clients (no client authentication, 
 //  choose any unique client id)"
 
-const CONFIG = {
+var CONFIG = {
     // Choose a unique client ID for your app
     // Convention: lowercase, use hyphens, make it descriptive and unique
     // Examples: 'kindle-chess-lev', 'my-chess-app-2024', 'chess-viewer-mobile'
@@ -946,7 +946,7 @@ console.warn = function() {
 // State
 // ============================================
 
-const state = {
+var state = {
     token: null,
     user: null,
     currentGame: null,
@@ -983,7 +983,9 @@ function hide(id) {
 }
 
 function showScreen(screenId) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+    document.querySelectorAll('.screen').forEach(function(s) {
+        s.classList.add('hidden');
+    });
     $(screenId).classList.remove('hidden');
 }
 
@@ -1003,29 +1005,28 @@ function dismissError() {
 
 // Generate random string for OAuth PKCE
 function generateRandomString(length) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let result = '';
-    const values = new Uint8Array(length);
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var result = '';
+    var values = new Uint8Array(length);
     window.crypto.getRandomValues(values);
-    for (let i = 0; i < length; i++) {
+    for (var i = 0; i < length; i++) {
         result += chars[values[i] % chars.length];
     }
     return result;
 }
 
 // SHA256 hash for PKCE
-async function sha256(plain) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(plain);
-    const hash = await window.crypto.subtle.digest('SHA-256', data);
-    return hash;
+function sha256(plain) {
+    var encoder = new TextEncoder();
+    var data = encoder.encode(plain);
+    return window.crypto.subtle.digest('SHA-256', data);
 }
 
 // Base64 URL encode
 function base64UrlEncode(arrayBuffer) {
-    const bytes = new Uint8Array(arrayBuffer);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
+    var bytes = new Uint8Array(arrayBuffer);
+    var binary = '';
+    for (var i = 0; i < bytes.length; i++) {
         binary += String.fromCharCode(bytes[i]);
     }
     return btoa(binary)
@@ -1037,8 +1038,8 @@ function base64UrlEncode(arrayBuffer) {
 // Format time for clock display
 function formatTime(seconds) {
     if (seconds === undefined || seconds === null) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    var mins = Math.floor(seconds / 60);
+    var secs = seconds % 60;
     return mins + ':' + (secs < 10 ? '0' : '') + secs;
 }
 
@@ -1073,18 +1074,17 @@ function fetchWithTimeout(url, options, timeout) {
 // OAuth Authentication
 // ============================================
 
-async function startLogin() {
-    try {
-        log('Starting login...');
-        const codeVerifier = generateRandomString(64);
-        localStorage.setItem('pkce_verifier', codeVerifier);
+function startLogin() {
+    log('Starting login...');
+    var codeVerifier = generateRandomString(64);
+    localStorage.setItem('pkce_verifier', codeVerifier);
 
-        log('Hashing code verifier...');
-        const hashed = await sha256(codeVerifier);
-        const codeChallenge = base64UrlEncode(hashed);
+    log('Hashing code verifier...');
+    sha256(codeVerifier).then(function(hashed) {
+        var codeChallenge = base64UrlEncode(hashed);
         log('Hash complete');
 
-        const params = new URLSearchParams({
+        var params = new URLSearchParams({
             response_type: 'code',
             client_id: CONFIG.LICHESS_CLIENT_ID,
             redirect_uri: CONFIG.REDIRECT_URI,
@@ -1094,47 +1094,45 @@ async function startLogin() {
         });
 
         window.location.href = CONFIG.LICHESS_HOST + '/oauth?' + params.toString();
-    } catch (err) {
+    }).catch(function(err) {
         log('Login failed:', err);
         showError('Login failed: ' + err.message);
         showScreen('screen-login');
-    }
+    });
 }
 
-async function handleOAuthCallback() {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
+function handleOAuthCallback() {
+    var params = new URLSearchParams(window.location.search);
+    var code = params.get('code');
     
-    if (!code) return false;
+    if (!code) return Promise.resolve(false);
     
-    const codeVerifier = localStorage.getItem('pkce_verifier');
+    var codeVerifier = localStorage.getItem('pkce_verifier');
     if (!codeVerifier) {
         log('No code verifier found');
-        return false;
+        return Promise.resolve(false);
     }
     
-    try {
-        log('Exchanging OAuth code for token...');
-        const response = await fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams({
-                grant_type: 'authorization_code',
-                code: code,
-                code_verifier: codeVerifier,
-                redirect_uri: CONFIG.REDIRECT_URI,
-                client_id: CONFIG.LICHESS_CLIENT_ID
-            }).toString()
-        }, 30000);
-
+    log('Exchanging OAuth code for token...');
+    return fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: code,
+            code_verifier: codeVerifier,
+            redirect_uri: CONFIG.REDIRECT_URI,
+            client_id: CONFIG.LICHESS_CLIENT_ID
+        }).toString()
+    }, 30000).then(function(response) {
         if (!response.ok) {
             log('Token exchange failed with status:', response.status);
             throw new Error('Token exchange failed');
         }
-
-        const data = await response.json();
+        return response.json();
+    }).then(function(data) {
         state.token = data.access_token;
         localStorage.setItem('lichess_token', state.token);
         localStorage.removeItem('pkce_verifier');
@@ -1144,23 +1142,21 @@ async function handleOAuthCallback() {
         window.history.replaceState({}, document.title, '/');
 
         return true;
-    } catch (err) {
+    }).catch(function(err) {
         log('OAuth error:', err);
         showError('OAuth failed: ' + err.message);
         return false;
-    }
+    });
 }
 
-async function checkAuth() {
+function checkAuth() {
     state.token = localStorage.getItem('lichess_token');
-    if (!state.token) return false;
+    if (!state.token) return Promise.resolve(false);
 
-    try {
-        log('Checking authentication...');
-        const response = await fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/account', {
-            headers: { 'Authorization': 'Bearer ' + state.token }
-        }, 20000);
-
+    log('Checking authentication...');
+    return fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/account', {
+        headers: { 'Authorization': 'Bearer ' + state.token }
+    }, 20000).then(function(response) {
         if (!response.ok) {
             log('Auth check failed, clearing token');
             localStorage.removeItem('lichess_token');
@@ -1168,16 +1164,18 @@ async function checkAuth() {
             return false;
         }
 
-        state.user = await response.json();
-        log('Authenticated as:', state.user.username);
-        return true;
-    } catch (err) {
+        return response.json().then(function(user) {
+            state.user = user;
+            log('Authenticated as:', state.user.username);
+            return true;
+        });
+    }).catch(function(err) {
         log('Auth check failed:', err);
         showError('Connection failed: ' + err.message);
         localStorage.removeItem('lichess_token');
         state.token = null;
         return false;
-    }
+    });
 }
 
 function logout() {
@@ -1202,128 +1200,143 @@ function showLobby() {
 }
 
 function renderTimeControls() {
-    const container = $('time-controls');
+    var container = $('time-controls');
     container.innerHTML = '';
     
-    CONFIG.TIME_CONTROLS.forEach(tc => {
-        const btn = document.createElement('button');
+    CONFIG.TIME_CONTROLS.forEach(function(tc) {
+        var btn = document.createElement('button');
         btn.className = 'btn time-btn';
         btn.textContent = tc.name;
-        btn.onclick = () => seekGame(tc.time, tc.increment);
+        btn.onclick = function() {
+            seekGame(tc.time, tc.increment);
+        };
         container.appendChild(btn);
     });
 }
 
-async function checkOngoingGames() {
-    try {
-        const response = await fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/account/playing', {
-            headers: { 'Authorization': 'Bearer ' + state.token }
-        }, 15000);
-
+function checkOngoingGames() {
+    return fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/account/playing', {
+        headers: { 'Authorization': 'Bearer ' + state.token }
+    }, 15000).then(function(response) {
         if (!response.ok) return;
 
-        const data = await response.json();
-        const games = data.nowPlaying || [];
+        return response.json().then(function(data) {
+            var games = data.nowPlaying || [];
 
-        if (games.length > 0) {
-            show('ongoing-games');
-            const list = $('games-list');
-            list.innerHTML = '';
+            if (games.length > 0) {
+                show('ongoing-games');
+                var list = $('games-list');
+                list.innerHTML = '';
 
-            games.forEach(game => {
-                const div = document.createElement('div');
-                div.className = 'game-item';
-                div.innerHTML =
-                    '<span>vs ' + game.opponent.username + '</span>' +
-                    '<button class="btn btn-small">Resume</button>';
-                div.querySelector('button').onclick = () => joinGame(game.gameId);
-                list.appendChild(div);
-            });
-        } else {
-            hide('ongoing-games');
-        }
-    } catch (err) {
+                games.forEach(function(game) {
+                    var div = document.createElement('div');
+                    div.className = 'game-item';
+                    div.innerHTML =
+                        '<span>vs ' + game.opponent.username + '</span>' +
+                        '<button class="btn btn-small">Resume</button>';
+                    div.querySelector('button').onclick = function() {
+                        joinGame(game.gameId);
+                    };
+                    list.appendChild(div);
+                });
+            } else {
+                hide('ongoing-games');
+            }
+        });
+    }).catch(function(err) {
         log('Failed to check ongoing games:', err);
-    }
+    });
 }
 
-async function seekGame(minutes, increment) {
+function seekGame(minutes, increment) {
     show('seeking');
     
     // First, start listening to the event stream to catch game start
     startEventStream();
     
-    try {
-        // Create the seek - this will stream until cancelled or game found
-        const response = await fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/board/seek', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + state.token,
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams({
-                time: minutes,
-                increment: increment,
-                rated: 'true',
-                variant: 'standard',
-                color: 'random'
-            }).toString()
-        }, 120000);
-        
+    // Create the seek - this will stream until cancelled or game found
+    fetchWithTimeout(CONFIG.LICHESS_HOST + '/api/board/seek', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + state.token,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+            time: minutes,
+            increment: increment,
+            rated: 'true',
+            variant: 'standard',
+            color: 'random'
+        }).toString()
+    }, 120000).then(function(response) {
         if (!response.ok) {
-            let errorMsg = 'Seek failed: ' + response.status;
-            try {
-                const errorBody = await response.text();
-                log('Seek error body:', errorBody);
-                errorMsg += ' - ' + errorBody;
-            } catch (e) {}
-            throw new Error(errorMsg);
+            var errorMsg = 'Seek failed: ' + response.status;
+            return response.text().then(function(errorBody) {
+                if (errorBody) {
+                    log('Seek error body:', errorBody);
+                    errorMsg += ' - ' + errorBody;
+                }
+                throw new Error(errorMsg);
+            }, function() {
+                throw new Error(errorMsg);
+            });
         }
         
         // The seek stream stays open while waiting for an opponent
         // Game start notification comes via the event stream
         // Keep reading to keep the seek alive
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
         
         state.seekReader = reader;
-        
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) {
-                log('Seek stream ended');
-                break;
-            }
-            
-            const text = decoder.decode(value);
-            log('Seek stream data:', text);
-            
-            // Sometimes the game ID comes directly in the seek response
-            const lines = text.split('\n').filter(l => l.trim());
-            for (const line of lines) {
-                try {
-                    const event = JSON.parse(line);
-                    log('Seek event:', event);
-                    if (event.id) {
-                        hide('seeking');
-                        joinGame(event.id);
-                        return;
-                    }
-                } catch (e) {}
-            }
+
+        function readSeekChunk() {
+            reader.read().then(function(result) {
+                if (result.done) {
+                    log('Seek stream ended');
+                    // Stream ended without finding game
+                    hide('seeking');
+                    showError('No opponent found. Try again.');
+                    return;
+                }
+                
+                var text = decoder.decode(result.value);
+                log('Seek stream data:', text);
+                
+                // Sometimes the game ID comes directly in the seek response
+                var lines = text.split('\n').filter(function(l) { return l.trim(); });
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i];
+                    try {
+                        var event = JSON.parse(line);
+                        log('Seek event:', event);
+                        if (event.id) {
+                            hide('seeking');
+                            joinGame(event.id);
+                            return;
+                        }
+                    } catch (e) {}
+                }
+
+                // Continue reading
+                readSeekChunk();
+            }).catch(function(err) {
+                log('Seek stream read error:', err);
+                hide('seeking');
+                if (err.name !== 'AbortError') {
+                    showError('Failed to find game. Please try again.');
+                }
+            });
         }
-        
-        // Stream ended without finding game
-        hide('seeking');
-        showError('No opponent found. Try again.');
-        
-    } catch (err) {
+
+        readSeekChunk();
+    }).catch(function(err) {
         log('Seek error:', err);
         hide('seeking');
         if (err.name !== 'AbortError') {
             showError('Failed to find game. Please try again.');
         }
-    }
+    });
 }
 
 // Event stream to receive game start notifications
@@ -1434,7 +1447,7 @@ function cancelSeek() {
 // Game Logic
 // ============================================
 
-async function joinGame(gameId) {
+function joinGame(gameId) {
     state.currentGame = { id: gameId };
     state.board = null;
     state.selectedSquare = null;
@@ -1519,12 +1532,10 @@ function streamGame(gameId) {
 function handleGameEvent(event) {
     if (event.type === 'gameFull') {
         // Initial game state
-        state.currentGame = {
-            ...state.currentGame,
-            white: event.white,
-            black: event.black,
-            initialFen: event.initialFen || 'startpos'
-        };
+        state.currentGame = state.currentGame || {};
+        state.currentGame.white = event.white;
+        state.currentGame.black = event.black;
+        state.currentGame.initialFen = event.initialFen || 'startpos';
         
         // Determine orientation
         state.orientation = (event.white.id === state.user.id.toLowerCase()) ? 'white' : 'black';
@@ -1550,7 +1561,7 @@ function handleGameEvent(event) {
 
 function handleGameState(gameState) {
     // Parse moves and build position
-    const moves = gameState.moves ? gameState.moves.split(' ').filter(m => m) : [];
+    var moves = gameState.moves ? gameState.moves.split(' ').filter(function(m) { return m; }) : [];
     state.board = buildPosition(moves);
     state.currentGame.moves = moves;
     state.currentGame.status = gameState.status;
@@ -1558,7 +1569,7 @@ function handleGameState(gameState) {
     
     // Calculate whose turn
     state.isWhiteTurn = moves.length % 2 === 0;
-    const isMyTurn = (state.orientation === 'white') === state.isWhiteTurn;
+    var isMyTurn = (state.orientation === 'white') === state.isWhiteTurn;
     
     // Update clocks
     updateClocks(gameState.wtime, gameState.btime);
@@ -1588,7 +1599,7 @@ function updateClocks(wtime, btime) {
 }
 
 function renderClocks() {
-    let playerTime, opponentTime;
+    var playerTime, opponentTime;
     if (state.orientation === 'white') {
         playerTime = state.whiteTime;
         opponentTime = state.blackTime;
@@ -1597,13 +1608,13 @@ function renderClocks() {
         opponentTime = state.whiteTime;
     }
     
-    const playerClock = $('player-clock');
-    const opponentClock = $('opponent-clock');
+    var playerClock = $('player-clock');
+    var opponentClock = $('opponent-clock');
     
     playerClock.textContent = formatTime(Math.max(0, playerTime));
     opponentClock.textContent = formatTime(Math.max(0, opponentTime));
     
-    const threshold = CONFIG.SETTINGS?.lowTimeThreshold || 30;
+    var threshold = (CONFIG.SETTINGS && CONFIG.SETTINGS.lowTimeThreshold) || 30;
     playerClock.classList.toggle('low-time', playerTime < threshold);
     opponentClock.classList.toggle('low-time', opponentTime < threshold);
 }
@@ -1623,7 +1634,7 @@ function startClockTimer() {
     state.clockInterval = setInterval(function() {
         if (!state.lastClockUpdate) return;
         
-        const elapsed = Math.floor((Date.now() - state.lastClockUpdate) / 1000);
+        var elapsed = Math.floor((Date.now() - state.lastClockUpdate) / 1000);
         
         if (state.isWhiteTurn) {
             state.whiteTime = Math.max(0, state.whiteTime - elapsed);
@@ -1647,9 +1658,9 @@ function showGameResult(gameState) {
     hide('game-controls');
     show('game-result');
     
-    let resultText = '';
-    const status = gameState.status;
-    const winner = gameState.winner;
+    var resultText = '';
+    var status = gameState.status;
+    var winner = gameState.winner;
     
     if (status === 'draw' || status === 'stalemate') {
         resultText = 'Draw';
@@ -1675,7 +1686,7 @@ function showGameResult(gameState) {
 
 function buildPosition(moves) {
     // Start from initial position
-    const board = [
+    var board = [
         ['r','n','b','q','k','b','n','r'],
         ['p','p','p','p','p','p','p','p'],
         ['','','','','','','',''],
@@ -1687,7 +1698,8 @@ function buildPosition(moves) {
     ];
     
     // Apply each move
-    for (const move of moves) {
+    for (var i = 0; i < moves.length; i++) {
+        var move = moves[i];
         applyMove(board, move);
     }
     
@@ -1695,13 +1707,13 @@ function buildPosition(moves) {
 }
 
 function applyMove(board, uci) {
-    const fromFile = uci.charCodeAt(0) - 97;
-    const fromRank = 8 - parseInt(uci[1]);
-    const toFile = uci.charCodeAt(2) - 97;
-    const toRank = 8 - parseInt(uci[3]);
-    const promotion = uci[4];
+    var fromFile = uci.charCodeAt(0) - 97;
+    var fromRank = 8 - parseInt(uci[1]);
+    var toFile = uci.charCodeAt(2) - 97;
+    var toRank = 8 - parseInt(uci[3]);
+    var promotion = uci[4];
     
-    const piece = board[fromRank][fromFile];
+    var piece = board[fromRank][fromFile];
     
     // Handle castling
     if (piece.toLowerCase() === 'k' && Math.abs(fromFile - toFile) === 2) {
@@ -1733,47 +1745,47 @@ function applyMove(board, uci) {
     
     // Handle promotion
     if (promotion) {
-        const isWhite = piece === 'P';
+        var isWhite = piece === 'P';
         board[toRank][toFile] = isWhite ? promotion.toUpperCase() : promotion.toLowerCase();
     }
 }
 
 function getLegalMoves(square) {
     // Simplified move generation - server validates anyway
-    const file = square.charCodeAt(0) - 97;
-    const rank = 8 - parseInt(square[1]);
-    const piece = state.board[rank][file];
+    var file = square.charCodeAt(0) - 97;
+    var rank = 8 - parseInt(square[1]);
+    var piece = state.board[rank][file];
     
     if (!piece) return [];
     
-    const isWhite = piece === piece.toUpperCase();
-    const isMyPiece = (state.orientation === 'white') === isWhite;
+    var isWhite = piece === piece.toUpperCase();
+    var isMyPiece = (state.orientation === 'white') === isWhite;
     
     if (!isMyPiece) return [];
     
-    const moves = [];
-    const type = piece.toLowerCase();
+    var moves = [];
+    var type = piece.toLowerCase();
     
     // Generate pseudo-legal moves (server will validate)
     if (type === 'p') {
-        const dir = isWhite ? -1 : 1;
-        const startRank = isWhite ? 6 : 1;
+        var dir = isWhite ? -1 : 1;
+        var startRank = isWhite ? 6 : 1;
         
         // Forward
-        if (!state.board[rank + dir]?.[file]) {
+        if (!state.board[rank + dir] || !state.board[rank + dir][file]) {
             moves.push([file, rank + dir]);
             // Double push
-            if (rank === startRank && !state.board[rank + dir * 2]?.[file]) {
+            if (rank === startRank && (!state.board[rank + dir * 2] || !state.board[rank + dir * 2][file])) {
                 moves.push([file, rank + dir * 2]);
             }
         }
         
         // Captures
-        [-1, 1].forEach(df => {
-            const nf = file + df;
-            const nr = rank + dir;
+        [-1, 1].forEach(function(df) {
+            var nf = file + df;
+            var nr = rank + dir;
             if (nf >= 0 && nf < 8 && nr >= 0 && nr < 8) {
-                const target = state.board[nr][nf];
+                var target = state.board[nr][nf];
                 if (target && (target === target.toUpperCase()) !== isWhite) {
                     moves.push([nf, nr]);
                 }
@@ -1784,22 +1796,23 @@ function getLegalMoves(square) {
             }
         });
     } else if (type === 'n') {
-        [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(([df, dr]) => {
-            const nf = file + df, nr = rank + dr;
+        [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(function(pair) {
+            var df = pair[0], dr = pair[1];
+            var nf = file + df, nr = rank + dr;
             if (nf >= 0 && nf < 8 && nr >= 0 && nr < 8) {
-                const target = state.board[nr][nf];
+                var target = state.board[nr][nf];
                 if (!target || (target === target.toUpperCase()) !== isWhite) {
                     moves.push([nf, nr]);
                 }
             }
         });
     } else if (type === 'k') {
-        for (let dr = -1; dr <= 1; dr++) {
-            for (let df = -1; df <= 1; df++) {
+        for (var dr = -1; dr <= 1; dr++) {
+            for (var df = -1; df <= 1; df++) {
                 if (dr === 0 && df === 0) continue;
-                const nf = file + df, nr = rank + dr;
+                var nf = file + df, nr = rank + dr;
                 if (nf >= 0 && nf < 8 && nr >= 0 && nr < 8) {
-                    const target = state.board[nr][nf];
+                    var target = state.board[nr][nf];
                     if (!target || (target === target.toUpperCase()) !== isWhite) {
                         moves.push([nf, nr]);
                     }
@@ -1813,15 +1826,16 @@ function getLegalMoves(square) {
         }
     } else {
         // Sliding pieces (B, R, Q)
-        const directions = [];
+        var directions = [];
         if (type === 'b' || type === 'q') directions.push([-1,-1],[-1,1],[1,-1],[1,1]);
         if (type === 'r' || type === 'q') directions.push([-1,0],[1,0],[0,-1],[0,1]);
         
-        directions.forEach(([df, dr]) => {
-            for (let i = 1; i < 8; i++) {
-                const nf = file + df * i, nr = rank + dr * i;
+        directions.forEach(function(pair) {
+            var df = pair[0], dr = pair[1];
+            for (var i = 1; i < 8; i++) {
+                var nf = file + df * i, nr = rank + dr * i;
                 if (nf < 0 || nf >= 8 || nr < 0 || nr >= 8) break;
-                const target = state.board[nr][nf];
+                var target = state.board[nr][nf];
                 if (!target) {
                     moves.push([nf, nr]);
                 } else {
@@ -1834,7 +1848,10 @@ function getLegalMoves(square) {
         });
     }
     
-    return moves.map(([f, r]) => String.fromCharCode(97 + f) + (8 - r));
+    return moves.map(function(pair) {
+        var f = pair[0], r = pair[1];
+        return String.fromCharCode(97 + f) + (8 - r);
+    });
 }
 
 // ============================================
@@ -1842,11 +1859,14 @@ function getLegalMoves(square) {
 // ============================================
 
 function renderBoard() {
-    const container = $('board');
+    var container = $('board');
     container.innerHTML = '';
     
-    const lastMove = state.currentGame?.moves?.slice(-1)[0];
-    let lastFrom = null, lastTo = null;
+    var lastMove = null;
+    if (state.currentGame && state.currentGame.moves && state.currentGame.moves.length) {
+        lastMove = state.currentGame.moves[state.currentGame.moves.length - 1];
+    }
+    var lastFrom = null, lastTo = null;
     if (lastMove) {
         lastFrom = lastMove.slice(0, 2);
         lastTo = lastMove.slice(2, 4);
@@ -1855,14 +1875,14 @@ function renderBoard() {
     // Simple check detection - server handles check detection
     // Could highlight king in check here in the future
     
-    for (let r = 0; r < 8; r++) {
-        for (let f = 0; f < 8; f++) {
-            const rank = state.orientation === 'white' ? r : 7 - r;
-            const file = state.orientation === 'white' ? f : 7 - f;
-            const square = String.fromCharCode(97 + file) + (8 - rank);
-            const piece = state.board[rank][file];
+    for (var r = 0; r < 8; r++) {
+        for (var f = 0; f < 8; f++) {
+            var rank = state.orientation === 'white' ? r : 7 - r;
+            var file = state.orientation === 'white' ? f : 7 - f;
+            var square = String.fromCharCode(97 + file) + (8 - rank);
+            var piece = state.board[rank][file];
             
-            const div = document.createElement('div');
+            var div = document.createElement('div');
             div.className = 'square ' + ((rank + file) % 2 === 0 ? 'light' : 'dark');
             div.dataset.square = square;
             
@@ -1879,20 +1899,22 @@ function renderBoard() {
             
             // Piece
             if (piece) {
-                const span = document.createElement('span');
+                var span = document.createElement('span');
                 span.className = 'piece ' + (piece === piece.toUpperCase() ? 'white' : 'black');
                 span.textContent = getPieceSymbol(piece);
                 div.appendChild(span);
             }
             
-            div.onclick = () => handleSquareClick(square);
+            div.onclick = function() {
+                handleSquareClick(square);
+            };
             container.appendChild(div);
         }
     }
 }
 
 function getPieceSymbol(piece) {
-    const symbols = {
+    var symbols = {
         'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
         'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
     };
@@ -1906,13 +1928,14 @@ function getPieceSymbol(piece) {
 function handleSquareClick(square) {
     if (!state.currentGame || state.currentGame.status !== 'started') return;
     
-    const file = square.charCodeAt(0) - 97;
-    const rank = 8 - parseInt(square[1]);
-    const piece = state.board[rank][file];
+    var file = square.charCodeAt(0) - 97;
+    var rank = 8 - parseInt(square[1]);
+    var piece = state.board[rank][file];
     
     // Check if it's my turn
-    const isWhiteTurn = (state.currentGame.moves?.length || 0) % 2 === 0;
-    const isMyTurn = (state.orientation === 'white') === isWhiteTurn;
+    var movesLength = (state.currentGame && state.currentGame.moves) ? state.currentGame.moves.length : 0;
+    var isWhiteTurn = (movesLength % 2) === 0;
+    var isMyTurn = (state.orientation === 'white') === isWhiteTurn;
     
     if (!isMyTurn) return;
     
@@ -1922,7 +1945,7 @@ function handleSquareClick(square) {
             makeMove(state.selectedSquare, square);
         } else if (piece) {
             // Select different piece
-            const isWhite = piece === piece.toUpperCase();
+            var isWhite = piece === piece.toUpperCase();
             if ((state.orientation === 'white') === isWhite) {
                 state.selectedSquare = square;
                 state.legalMoves = getLegalMoves(square);
@@ -1937,7 +1960,7 @@ function handleSquareClick(square) {
     } else {
         // First click - select piece
         if (piece) {
-            const isWhite = piece === piece.toUpperCase();
+            var isWhite = piece === piece.toUpperCase();
             if ((state.orientation === 'white') === isWhite) {
                 state.selectedSquare = square;
                 state.legalMoves = getLegalMoves(square);
@@ -1949,17 +1972,17 @@ function handleSquareClick(square) {
 }
 
 function makeMove(from, to) {
-    const fromFile = from.charCodeAt(0) - 97;
-    const fromRank = 8 - parseInt(from[1]);
-    const piece = state.board[fromRank][fromFile];
+    var fromFile = from.charCodeAt(0) - 97;
+    var fromRank = 8 - parseInt(from[1]);
+    var piece = state.board[fromRank][fromFile];
     
     // Check for promotion
-    const toRank = 8 - parseInt(to[1]);
-    const isPawn = piece.toLowerCase() === 'p';
-    const isPromotion = isPawn && (toRank === 0 || toRank === 7);
+    var toRank = 8 - parseInt(to[1]);
+    var isPawn = piece.toLowerCase() === 'p';
+    var isPromotion = isPawn && (toRank === 0 || toRank === 7);
     
     if (isPromotion) {
-        state.pendingPromotion = { from, to };
+        state.pendingPromotion = { from: from, to: to };
         show('promotion-modal');
         return;
     }
@@ -1970,75 +1993,71 @@ function makeMove(from, to) {
 function selectPromotion(piece) {
     if (!state.pendingPromotion) return;
     
-    const { from, to } = state.pendingPromotion;
+    var from = state.pendingPromotion.from;
+    var to = state.pendingPromotion.to;
     hide('promotion-modal');
     sendMove(from + to + piece);
     state.pendingPromotion = null;
 }
 
-async function sendMove(uci) {
+function sendMove(uci) {
     state.selectedSquare = null;
     state.legalMoves = [];
     renderBoard();
 
-    try {
-        const response = await fetchWithTimeout(
-            CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/move/' + uci,
-            {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + state.token }
-            },
-            10000
-        );
-
+    fetchWithTimeout(
+        CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/move/' + uci,
+        {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + state.token }
+        },
+        10000
+    ).then(function(response) {
         if (!response.ok) {
             log('Move rejected');
             showError('Invalid move');
             // Move will be rejected, stream will update with correct state
         }
-    } catch (err) {
+    }).catch(function(err) {
         log('Failed to send move:', err);
         showError('Failed to send move');
-    }
+    });
 }
 
 // ============================================
 // Game Actions
 // ============================================
 
-async function resign() {
+function resign() {
     if (!confirm('Are you sure you want to resign?')) return;
 
-    try {
-        await fetchWithTimeout(
-            CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/resign',
-            {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + state.token }
-            },
-            10000
-        );
-    } catch (err) {
+    fetchWithTimeout(
+        CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/resign',
+        {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + state.token }
+        },
+        10000
+    ).catch(function(err) {
         log('Failed to resign:', err);
         showError('Failed to resign');
-    }
+    });
 }
 
-async function offerDraw() {
-    try {
-        await fetchWithTimeout(
-            CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/draw/yes',
-            {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + state.token }
-            },
-            10000
-        );
+function offerDraw() {
+    fetchWithTimeout(
+        CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/draw/yes',
+        {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + state.token }
+        },
+        10000
+    ).then(function() {
         alert('Draw offer sent');
-    } catch (err) {
+    }).catch(function(err) {
         log('Failed to offer draw:', err);
         showError('Failed to offer draw');
-    }
+    });
 }
 
 function backToLobby() {
@@ -2074,8 +2093,10 @@ function setupEventHandlers() {
     $('btn-dismiss-error').onclick = dismissError;
     
     // Promotion buttons
-    document.querySelectorAll('.promo-btn').forEach(btn => {
-        btn.onclick = () => selectPromotion(btn.dataset.piece);
+    document.querySelectorAll('.promo-btn').forEach(function(btn) {
+        btn.onclick = function() {
+            selectPromotion(btn.dataset.piece);
+        };
     });
 }
 
@@ -2097,7 +2118,7 @@ function checkBrowserCompatibility() {
     log('===================================');
 }
 
-async function init() {
+function init() {
     try {
         log('Initializing Lichess Kindle app...');
 
@@ -2116,31 +2137,47 @@ async function init() {
         showScreen('screen-loading');
 
         // Check for OAuth callback
-        if (window.location.search.includes('code=')) {
+        if (window.location.search.indexOf('code=') !== -1) {
             log('OAuth callback detected');
-            const success = await handleOAuthCallback();
-            if (success) {
-                const authed = await checkAuth();
-                if (authed) {
-                    showLobby();
+            handleOAuthCallback().then(function(success) {
+                if (!success) {
+                    showScreen('screen-login');
+                    showError('Login failed. Please try again.');
                     return;
                 }
-            }
-            showScreen('screen-login');
-            showError('Login failed. Please try again.');
+                return checkAuth().then(function(authed) {
+                    if (authed) {
+                        showLobby();
+                    } else {
+                        showScreen('screen-login');
+                        showError('Login failed. Please try again.');
+                    }
+                });
+            }).catch(function(err) {
+                log('CRITICAL: Init failed with error: ' + err.message);
+                log('Error stack: ' + (err.stack || 'No stack trace'));
+                showScreen('screen-login');
+                showError('Initialization failed: ' + err.message);
+            });
             return;
         }
 
         // Check existing auth
         log('Checking for existing auth...');
-        const authed = await checkAuth();
-        if (authed) {
-            log('Auth valid, showing lobby');
-            showLobby();
-        } else {
-            log('No existing auth, showing login screen');
+        checkAuth().then(function(authed) {
+            if (authed) {
+                log('Auth valid, showing lobby');
+                showLobby();
+            } else {
+                log('No existing auth, showing login screen');
+                showScreen('screen-login');
+            }
+        }).catch(function(err) {
+            log('CRITICAL: Init failed with error: ' + err.message);
+            log('Error stack: ' + (err.stack || 'No stack trace'));
             showScreen('screen-login');
-        }
+            showError('Initialization failed: ' + err.message);
+        });
     } catch (err) {
         log('CRITICAL: Init failed with error: ' + err.message);
         log('Error stack: ' + (err.stack || 'No stack trace'));
