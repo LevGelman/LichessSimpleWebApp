@@ -538,18 +538,21 @@ header {
 </div>
 
 <script>
+// IMMEDIATE TEST - Write directly to page before ANY other code
+document.getElementById('debug-log').innerHTML = 'JS RUNNING!<br>';
+
 // Ultra-simple logger with maximum compatibility
 (function() {
-    var logs = [];
-    var count = 0;
-    
+    var logs = ['JS RUNNING!'];
+    var count = 1;
+
     window.log = function(msg) {
         count++;
         var time = new Date().toLocaleTimeString();
         var logLine = count + '. [' + time + '] ' + String(msg);
         logs.push(logLine);
         if (logs.length > 50) logs.shift();
-        
+
         // Update debug div
         try {
             var debugDiv = document.getElementById('debug-log');
@@ -567,16 +570,20 @@ header {
         return true;
     };
 
-    window.addEventListener('unhandledrejection', function(e) {
-        log('PROMISE ERROR: ' + (e.reason || 'unknown'));
-    });
+    try {
+        window.addEventListener('unhandledrejection', function(e) {
+            log('PROMISE ERROR: ' + (e.reason || 'unknown'));
+        });
+    } catch(e) {
+        // addEventListener might not exist
+    }
 
     log('1. Logger initialized');
     log('2. Testing basic features...');
     log('3. typeof Promise: ' + typeof Promise);
     log('4. typeof fetch: ' + typeof fetch);
     log('5. typeof TextEncoder: ' + typeof TextEncoder);
-    
+
     // Test async/await support
     try {
         eval('(async function(){})()');
@@ -584,7 +591,7 @@ header {
     } catch(e) {
         log('6. async/await: ERROR - ' + e.message);
     }
-    
+
     log('7. Starting app load...');
 })();
 
