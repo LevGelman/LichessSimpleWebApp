@@ -917,73 +917,22 @@ if (window.console && window.console.log) {
     window.log('>>> app.js loading...');
 }
 
-// ============================================
-// On-Screen Debug Logger for Kindle
-// ============================================
+// Debug logging handled by window.log() function above
 
-const debugLines = [];
-const MAX_DEBUG_LINES = 50;
-
-function debugLog(message, isError) {
-    // Add to array
-    const timestamp = new Date().toLocaleTimeString();
-    debugLines.push({
-        time: timestamp,
-        msg: String(message),
-        isError: isError
-    });
-
-    // Keep only last N lines
-    if (debugLines.length > MAX_DEBUG_LINES) {
-        debugLines.shift();
-    }
-
-    // Update display
-    updateDebugDisplay();
-
-    // Also log to console (if available)
-    if (isError) {
-        log(message);
-    } else {
-        log(message);
-    }
-}
-
-function updateDebugDisplay() {
-    const debugEl = document.getElementById('debug-log');
-    if (!debugEl) return;
-
-    let html = '';
-    for (let i = 0; i < debugLines.length; i++) {
-        const line = debugLines[i];
-        const className = line.isError ? 'debug-error' : 'debug-ok';
-        html += '<div class="debug-line ' + className + '">' +
-                line.time + ' ' + line.msg + '</div>';
-    }
-    debugEl.innerHTML = html;
-
-    // Auto-scroll to bottom
-    debugEl.scrollTop = debugEl.scrollHeight;
-}
-
-// Override console methods to show on screen
-const originalConsoleLog = console.log;
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
-
+// Override console to use simple log
 console.log = function() {
-    const message = Array.prototype.slice.call(arguments).join(' ');
-    debugLog(message, false);
+    var message = Array.prototype.slice.call(arguments).join(' ');
+    log(message);
 };
 
 console.error = function() {
-    const message = Array.prototype.slice.call(arguments).join(' ');
-    debugLog(message, true);
+    var message = 'ERROR: ' + Array.prototype.slice.call(arguments).join(' ');
+    log(message);
 };
 
 console.warn = function() {
-    const message = 'WARN: ' + Array.prototype.slice.call(arguments).join(' ');
-    debugLog(message, false);
+    var message = 'WARN: ' + Array.prototype.slice.call(arguments).join(' ');
+    log(message);
 };
 
 // ============================================

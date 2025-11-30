@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+# Create ultra-minimal test that writes DIRECTLY to document.body
+
+html = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kindle Debug Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: white;
+            color: black;
+        }
+        #output {
+            border: 2px solid black;
+            padding: 10px;
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+<h1>Kindle Debug Test</h1>
+<div id="output">Initializing...</div>
+
+<script>
+// ULTRA MINIMAL - Write directly to page
+(function() {
+    var output = document.getElementById('output');
+    var lines = [];
+
+    function log(msg) {
+        lines.push(String(msg));
+        if (output) {
+            output.textContent = lines.join('\\n');
+        }
+    }
+
+    log('1. Script executing');
+    log('2. typeof Promise: ' + typeof Promise);
+    log('3. typeof fetch: ' + typeof fetch);
+    log('4. typeof TextEncoder: ' + typeof TextEncoder);
+    log('5. typeof crypto: ' + typeof crypto);
+    log('6. typeof async: testing...');
+
+    try {
+        eval('(async function(){})()');
+        log('6. async/await: OK');
+    } catch(e) {
+        log('6. async/await: FAIL - ' + e.message);
+    }
+
+    log('7. navigator.userAgent: ' + navigator.userAgent.substring(0, 100));
+    log('8. document.readyState: ' + document.readyState);
+    log('9. TEST COMPLETE');
+})();
+</script>
+</body>
+</html>
+'''
+
+with open('test-kindle-minimal.html', 'w') as f:
+    f.write(html)
+
+print("✓ Created test-kindle-minimal.html")
+print("\nUpload this file and test on Kindle")
+print("If you see numbered lines, JavaScript works")
+print("If you see only 'Initializing...', JavaScript is blocked/broken")
