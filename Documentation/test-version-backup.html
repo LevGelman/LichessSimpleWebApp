@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Lichess - Kindle</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Georgia, serif; font-size: 16px; background: #fff; color: #000; }
+        #app { max-width: 100%; padding: 8px; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+        h1 { font-size: 32px; text-align: center; margin: 20px 0; }
+        .subtitle { text-align: center; font-style: italic; margin-bottom: 20px; color: #444; }
+        .btn { display: inline-block; padding: 12px 20px; font-size: 16px; font-family: inherit; background: #fff; color: #000; border: 2px solid #000; cursor: pointer; min-height: 44px; min-width: 44px; }
+        .btn:active { background: #000; color: #fff; }
+        .btn-large { display: block; width: 100%; padding: 16px; font-size: 18px; margin: 8px 0; }
+        #debug { margin-top: 20px; padding: 10px; border: 2px solid #666; background: #f5f5f5; font-family: monospace; font-size: 11px; max-height: 400px; overflow-y: auto; }
+        .debug-line { margin: 2px 0; border-bottom: 1px dotted #ccc; padding: 2px 0; }
+        .error { background: #fcc; font-weight: bold; padding: 2px 4px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="screen-loading" class="screen active">
+            <h1>♔ Lichess</h1>
+            <p class="subtitle">Loading...</p>
+            <div id="debug"></div>
+        </div>
+
+        <div id="screen-test" class="screen">
+            <h1>Browser Test Results</h1>
+            <div id="test-results"></div>
+            <button class="btn btn-large" onclick="location.reload()">Reload</button>
+        </div>
+    </div>
+
+    <script>
+        // === SUPER SIMPLE DEBUG LOGGER ===
+        (function() {
+            var debugDiv = document.getElementById('debug');
+            var logs = [];
+            var logCount = 0;
+
+            window.log = function(msg, isError) {
+                logCount++;
+                var time = new Date().toLocaleTimeString();
+                var text = logCount + '. [' + time + '] ' + msg;
+                logs.push({ text: text, isError: isError });
+
+                if (debugDiv) {
+                    var html = '';
+                    for (var i = 0; i < logs.length; i++) {
+                        var cls = logs[i].isError ? 'debug-line error' : 'debug-line';
+                        html += '<div class="' + cls + '">' + logs[i].text + '</div>';
+                    }
+                    debugDiv.innerHTML = html;
+                    debugDiv.scrollTop = debugDiv.scrollHeight;
+                }
+            };
+
+            // Catch all errors
+            window.onerror = function(msg, url, line, col, error) {
+                log('ERROR: ' + msg + ' at line ' + line, true);
+                return true;
+            };
+
+            log('Script started');
+        })();
+
+        // === TEST BROWSER CAPABILITIES ===
+        log('Testing browser...');
+
+        // Test 1: Basic JS
+        try {
+            var x = 1 + 1;
+            log('1. Basic math: ' + x);
+        } catch (e) {
+            log('1. FAILED: ' + e.message, true);
+        }
+
+        // Test 2: DOM ready
+        log('2. DOM state: ' + document.readyState);
+
+        // Test 3: getElementById
+        try {
+            var testEl = document.getElementById('debug');
+            if (testEl) {
+                log('3. getElementById works');
+            } else {
+                log('3. getElementById returns null', true);
+            }
+        } catch (e) {
+            log('3. FAILED: ' + e.message, true);
+        }
+
+        // Test 4: const/let
+        try {
+            var testVar = 'var works';
+            log('4. var works: ' + testVar);
+
+            try {
+                eval('const testConst = "const"; let testLet = "let";');
+                log('5. const/let work');
+            } catch (e2) {
+                log('5. const/let FAILED: ' + e2.message, true);
+            }
+        } catch (e) {
+            log('4. FAILED: ' + e.message, true);
+        }
+
+        // Test 6: Arrow functions
+        try {
+            eval('var arrow = () => "test";');
+            log('6. Arrow functions work');
+        } catch (e) {
+            log('6. Arrow functions FAILED: ' + e.message, true);
+        }
+
+        // Test 7: Promise
+        try {
+            var p = new Promise(function(resolve) { resolve('ok'); });
+            log('7. Promise exists');
+        } catch (e) {
+            log('7. Promise FAILED: ' + e.message, true);
+        }
+
+        // Test 8: async/await
+        try {
+            eval('async function test() { return "ok"; }');
+            log('8. async/await syntax works');
+        } catch (e) {
+            log('8. async/await FAILED: ' + e.message, true);
+        }
+
+        // Test 9: fetch
+        if (typeof fetch !== 'undefined') {
+            log('9. fetch API exists');
+        } else {
+            log('9. fetch API MISSING', true);
+        }
+
+        // Test 10: TextEncoder
+        if (typeof TextEncoder !== 'undefined') {
+            log('10. TextEncoder exists');
+        } else {
+            log('10. TextEncoder MISSING (need polyfill)');
+        }
+
+        // Test 11: crypto.subtle
+        if (window.crypto && window.crypto.subtle) {
+            log('11. crypto.subtle exists');
+        } else {
+            log('11. crypto.subtle MISSING (need polyfill)');
+        }
+
+        // Test 12: localStorage
+        try {
+            localStorage.setItem('test', 'value');
+            var val = localStorage.getItem('test');
+            localStorage.removeItem('test');
+            log('12. localStorage works: ' + val);
+        } catch (e) {
+            log('12. localStorage FAILED: ' + e.message, true);
+        }
+
+        // Test 13: ReadableStream
+        if (typeof ReadableStream !== 'undefined') {
+            log('13. ReadableStream exists');
+        } else {
+            log('13. ReadableStream MISSING', true);
+        }
+
+        // Test 14: User agent
+        log('14. User agent: ' + navigator.userAgent.substring(0, 50));
+
+        // Test 15: Screen size
+        log('15. Screen: ' + window.innerWidth + 'x' + window.innerHeight);
+
+        log('=== TESTS COMPLETE ===');
+        log('Waiting 3 seconds, then will try to show test results screen...');
+
+        // Try to transition after 3 seconds
+        setTimeout(function() {
+            try {
+                log('Attempting screen transition...');
+
+                var loading = document.getElementById('screen-loading');
+                var test = document.getElementById('screen-test');
+
+                if (loading && test) {
+                    loading.className = 'screen';
+                    test.className = 'screen active';
+                    log('SUCCESS: Screen changed!');
+                } else {
+                    log('FAILED: Could not find screen elements', true);
+                }
+            } catch (e) {
+                log('Screen transition FAILED: ' + e.message, true);
+            }
+        }, 3000);
+
+        log('Script end reached');
+    </script>
+</body>
+</html>
