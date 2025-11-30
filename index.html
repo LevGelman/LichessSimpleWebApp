@@ -1865,35 +1865,19 @@ function getLegalMoves(square) {
 function renderBoard() {
     var container = $('board');
     container.innerHTML = '';
-    
-    var lastMove = null;
-    if (state.currentGame && state.currentGame.moves && state.currentGame.moves.length) {
-        lastMove = state.currentGame.moves[state.currentGame.moves.length - 1];
-    }
-    var lastFrom = null, lastTo = null;
-    if (lastMove) {
-        lastFrom = lastMove.slice(0, 2);
-        lastTo = lastMove.slice(2, 4);
-    }
-    
-    // Simple check detection - server handles check detection
-    // Could highlight king in check here in the future
-    
+
     for (var r = 0; r < 8; r++) {
         for (var f = 0; f < 8; f++) {
             var rank = state.orientation === 'white' ? r : 7 - r;
             var file = state.orientation === 'white' ? f : 7 - f;
             var square = String.fromCharCode(97 + file) + (8 - rank);
             var piece = state.board[rank][file];
-            
+
             var div = document.createElement('div');
             div.className = 'square ' + ((rank + file) % 2 === 0 ? 'light' : 'dark');
             div.dataset.square = square;
-            
+
             // Highlights
-            if (square === lastFrom || square === lastTo) {
-                div.classList.add('last-move');
-            }
             if (square === state.selectedSquare) {
                 div.classList.add('selected');
             }
@@ -1909,9 +1893,6 @@ function renderBoard() {
                 div.appendChild(span);
             }
             
-            div.onclick = function() {
-                handleSquareClick(square);
-            };
             container.appendChild(div);
         }
     }
@@ -2095,7 +2076,20 @@ function setupEventHandlers() {
     $('btn-draw').onclick = offerDraw;
     $('btn-new-game').onclick = newGame;
     $('btn-dismiss-error').onclick = dismissError;
-    
+
+    // Board click handler using event delegation
+    $('board').onclick = function(e) {
+        var target = e.target;
+        // Find the square div (might have clicked on piece span)
+        while (target && target.id !== 'board') {
+            if (target.dataset && target.dataset.square) {
+                handleSquareClick(target.dataset.square);
+                return;
+            }
+            target = target.parentElement;
+        }
+    };
+
     // Promotion buttons
     document.querySelectorAll('.promo-btn').forEach(function(btn) {
         btn.onclick = function() {
