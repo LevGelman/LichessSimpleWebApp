@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kindle Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        #log { border: 2px solid #000; padding: 10px; background: #f0f0f0; }
+        .line { margin: 5px 0; border-bottom: 1px dotted #999; }
+        .error { background: #fcc; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Kindle Browser Test</h1>
+    <div id="log"></div>
+
+    <script>
+        // Direct DOM logging - no console override
+        var logEl = document.getElementById('log');
+        var lineCount = 0;
+
+        function log(msg, isError) {
+            lineCount++;
+            var time = new Date().toLocaleTimeString();
+            var div = document.createElement('div');
+            div.className = isError ? 'line error' : 'line';
+            div.textContent = lineCount + '. [' + time + '] ' + msg;
+            logEl.appendChild(div);
+        }
+
+        log('✓ HTML loaded');
+        log('✓ Inline script executing');
+
+        // Test 1: Basic JavaScript
+        try {
+            var x = 1 + 1;
+            log('✓ Basic math works: 1+1=' + x);
+        } catch (e) {
+            log('✗ Basic math failed: ' + e.message, true);
+        }
+
+        // Test 2: const/let
+        try {
+            const testConst = 'hello';
+            let testLet = 'world';
+            log('✓ const/let supported');
+        } catch (e) {
+            log('✗ const/let not supported: ' + e.message, true);
+        }
+
+        // Test 3: Arrow functions
+        try {
+            var arrowTest = () => 'arrow';
+            log('✓ Arrow functions work: ' + arrowTest());
+        } catch (e) {
+            log('✗ Arrow functions failed: ' + e.message, true);
+        }
+
+        // Test 4: async/await
+        try {
+            log('Testing async/await...');
+            async function testAsync() {
+                return 'async works';
+            }
+            testAsync().then(function(result) {
+                log('✓ async/await works: ' + result);
+            }).catch(function(err) {
+                log('✗ async/await failed: ' + err.message, true);
+            });
+        } catch (e) {
+            log('✗ async/await parse error: ' + e.message, true);
+        }
+
+        // Test 5: Promise
+        try {
+            var p = new Promise(function(resolve) {
+                resolve('promise works');
+            });
+            p.then(function(result) {
+                log('✓ Promise works: ' + result);
+            });
+        } catch (e) {
+            log('✗ Promise failed: ' + e.message, true);
+        }
+
+        // Test 6: fetch API
+        try {
+            if (typeof fetch !== 'undefined') {
+                log('✓ fetch API exists');
+            } else {
+                log('✗ fetch API missing', true);
+            }
+        } catch (e) {
+            log('✗ fetch check failed: ' + e.message, true);
+        }
+
+        // Test 7: TextEncoder/TextDecoder
+        try {
+            if (typeof TextEncoder !== 'undefined') {
+                var enc = new TextEncoder();
+                log('✓ TextEncoder exists');
+            } else {
+                log('⚠ TextEncoder missing (needs polyfill)');
+            }
+        } catch (e) {
+            log('✗ TextEncoder check failed: ' + e.message, true);
+        }
+
+        // Test 8: crypto.subtle
+        try {
+            if (window.crypto && window.crypto.subtle) {
+                log('✓ crypto.subtle exists');
+            } else {
+                log('⚠ crypto.subtle missing (needs polyfill)');
+            }
+        } catch (e) {
+            log('✗ crypto.subtle check failed: ' + e.message, true);
+        }
+
+        // Test 9: ReadableStream
+        try {
+            if (typeof ReadableStream !== 'undefined') {
+                log('✓ ReadableStream exists');
+            } else {
+                log('⚠ ReadableStream missing', true);
+            }
+        } catch (e) {
+            log('✗ ReadableStream check failed: ' + e.message, true);
+        }
+
+        // Test 10: localStorage
+        try {
+            localStorage.setItem('test', 'value');
+            var val = localStorage.getItem('test');
+            localStorage.removeItem('test');
+            log('✓ localStorage works: ' + val);
+        } catch (e) {
+            log('✗ localStorage failed: ' + e.message, true);
+        }
+
+        // Test 11: DOM manipulation
+        try {
+            var testDiv = document.createElement('div');
+            testDiv.textContent = 'test';
+            log('✓ DOM manipulation works');
+        } catch (e) {
+            log('✗ DOM manipulation failed: ' + e.message, true);
+        }
+
+        // Test 12: Event listeners
+        try {
+            window.addEventListener('test', function() {});
+            log('✓ addEventListener works');
+        } catch (e) {
+            log('✗ addEventListener failed: ' + e.message, true);
+        }
+
+        log('=== TESTS COMPLETE ===');
+        log('If you see this, JavaScript is working!');
+        log('Check which tests have ✗ or ⚠');
+    </script>
+</body>
+</html>
