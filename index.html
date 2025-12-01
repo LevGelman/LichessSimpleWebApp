@@ -1544,13 +1544,23 @@ function handleGameEvent(event) {
         // Determine orientation
         state.orientation = (event.white.id === state.user.id.toLowerCase()) ? 'white' : 'black';
         
-        // Set player names
+        // Set player names with ratings
         if (state.orientation === 'white') {
-            $('player-name').textContent = event.white.name || event.white.id;
-            $('opponent-name').textContent = event.black.name || event.black.id;
+            var playerName = event.white.name || event.white.id;
+            var playerRating = event.white.rating ? ' (' + event.white.rating + ')' : '';
+            $('player-name').textContent = playerName + playerRating;
+
+            var opponentName = event.black.name || event.black.id;
+            var opponentRating = event.black.rating ? ' (' + event.black.rating + ')' : '';
+            $('opponent-name').textContent = opponentName + opponentRating;
         } else {
-            $('player-name').textContent = event.black.name || event.black.id;
-            $('opponent-name').textContent = event.white.name || event.white.id;
+            var playerName = event.black.name || event.black.id;
+            var playerRating = event.black.rating ? ' (' + event.black.rating + ')' : '';
+            $('player-name').textContent = playerName + playerRating;
+
+            var opponentName = event.white.name || event.white.id;
+            var opponentRating = event.white.rating ? ' (' + event.white.rating + ')' : '';
+            $('opponent-name').textContent = opponentName + opponentRating;
         }
         
         handleGameState(event.state);
