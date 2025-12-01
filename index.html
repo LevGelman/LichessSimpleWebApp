@@ -967,7 +967,8 @@ var state = {
     lastClockUpdate: null,
     whiteTime: null,
     blackTime: null,
-    isWhiteTurn: true
+    isWhiteTurn: true,
+    drawOfferShown: false
 };
 
 // ============================================
@@ -1580,14 +1581,29 @@ function handleGameState(gameState) {
     state.currentGame.moves = moves;
     state.currentGame.status = gameState.status;
     state.currentGame.winner = gameState.winner;
-    
+
     // Calculate whose turn
     state.isWhiteTurn = moves.length % 2 === 0;
     var isMyTurn = (state.orientation === 'white') === state.isWhiteTurn;
-    
+
     // Update clocks
     updateClocks(gameState.wtime, gameState.btime);
-    
+
+    // Check for opponent's draw offer
+    var opponentOfferedDraw = false;
+    if (state.orientation === 'white' && gameState.bdraw) {
+        opponentOfferedDraw = true;
+    } else if (state.orientation === 'black' && gameState.wdraw) {
+        opponentOfferedDraw = true;
+    }
+
+    if (opponentOfferedDraw && !state.drawOfferShown) {
+        state.drawOfferShown = true;
+        showDrawOffer();
+    } else if (!opponentOfferedDraw) {
+        state.drawOfferShown = false;
+    }
+
     // Update status
     if (gameState.status === 'started' || gameState.status === 'created') {
         $('game-status').textContent = isMyTurn ? 'Your turn' : "Opponent's turn";
@@ -1595,11 +1611,11 @@ function handleGameState(gameState) {
         stopClockTimer();
         showGameResult(gameState);
     }
-    
+
     // Clear selection
     state.selectedSquare = null;
     state.legalMoves = [];
-    
+
     renderBoard();
 }
 
@@ -2061,6 +2077,57 @@ function offerDraw() {
     }).catch(function(err) {
         log('Failed to offer draw:', err);
         showError('Failed to offer draw');
+    });
+}
+
+function showDrawOffer() {
+    if (confirm('Your opponent offers a draw. Do you accept?')) {
+        acceptDraw();
+    } else {
+        declineDraw();
+    }
+}
+
+function acceptDraw() {
+    log('Accepting draw offer...');
+    fetchWithTimeout(
+        CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/draw/yes',
+        {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + state.token }
+        },
+        10000
+    ).then(function(response) {
+        if (response.ok) {
+            log('Draw accepted');
+            // The game stream will send the final game state
+        } else {
+            log('Accept draw failed with status:', response.status);
+            showError('Failed to accept draw');
+        }
+    }).catch(function(err) {
+        log('Failed to accept draw:', err);
+        showError('Failed to accept draw: ' + err.message);
+    });
+}
+
+function declineDraw() {
+    log('Declining draw offer...');
+    fetchWithTimeout(
+        CONFIG.LICHESS_HOST + '/api/board/game/' + state.currentGame.id + '/draw/no',
+        {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + state.token }
+        },
+        10000
+    ).then(function(response) {
+        if (response.ok) {
+            log('Draw declined');
+        } else {
+            log('Decline draw failed with status:', response.status);
+        }
+    }).catch(function(err) {
+        log('Failed to decline draw:', err);
     });
 }
 
